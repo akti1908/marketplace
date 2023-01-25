@@ -1,11 +1,11 @@
 from django.http import Http404
-from django.shortcuts import render
 from rest_framework import permissions, status
+from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import ProductSerializer
-from .models import Product
-from users.permissions import IsVendorPermission, IsOwnerOrReadOnly, AnonPermission
+from .serializers import ProductSerializer, CartSerializer
+from .models import Product, Cart
+from users.permissions import IsVendorPermission, IsOwnerOrReadOnly
 
 
 class ProductCreateAPIView(APIView):
@@ -88,5 +88,46 @@ class ProductDeleteAPIView(APIView):
         snippet = self.get_object(id)
         snippet.delete()
         return Response(status.HTTP_204_NO_CONTENT)
+
+
+class AddToCartAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+    # authentication_classes = []
+    # parser_classes = JSONParser
+
+    def get_object(self, user_id):
+        try:
+            return Cart.objects.get(customer_id=user_id)
+        except Cart.DoesNotExist:
+            raise Http404
+
+    def put(self, request, user_id):
+        snippet = self.get_object(user_id)
+        serializer = CartSerializer(snippet, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CartDetailAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+    # authentication_classes = []
+    # parser_classes = JSONParser
+
+    def get_object(self, user_id):
+        try:
+            return Cart.objects.get(customer_id=user_id)
+        except Cart.DoesNotExist:
+            raise Http404
+
+    def get(self, request, user_id):
+        cart = self.get_object(user_id)
+        serializer1 = CartSerializer(cart)
+        serializer2 = ProductSerializer(cart.product.all(), many=True)
+        data = serializer1.data
+        data['product'] = serializer2.data
+        return Response(data, status=status.HTTP_200_OK)
+
 
 

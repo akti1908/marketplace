@@ -8,6 +8,8 @@ from .serializers import VendorSerializer, CustomerSerializer, MyTokenObtainPair
 from .models import Vendor, Customer
 from rest_framework import permissions, status
 from .permissions import AnonPermission
+from product.models import Cart
+from product.serializers import CartSerializer, ProductSerializer
 
 
 class LoginView(TokenObtainPairView):
@@ -57,6 +59,10 @@ class CustomerRegisterView(APIView):
             )
             customer.set_password(request.data['password'])
             customer.save()
+            cart = Cart.objects.create(
+                customer=customer
+            )
+            cart.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -124,8 +130,15 @@ class CustomerDetailAPIView(APIView):
 
     def get(self, request, id):
         snippet = self.get_object(id)
+        cart = Cart.objects.get(customer_id=id)
         serializer = CustomerSerializer(snippet)
-        return Response(serializer.data)
+        serializer2 = CartSerializer(cart)
+        serializer3 = ProductSerializer(cart.product.all(), many=True)
+        data = serializer.data
+        cart_data = serializer2.data
+        cart_data['product'] = serializer3.data
+        data['cart'] = cart_data
+        return Response(data, status=status.HTTP_200_OK)
 
     def put(self, request, id):
         snippet = self.get_object(id)
